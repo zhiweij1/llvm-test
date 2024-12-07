@@ -219,6 +219,9 @@ protected:
                                               FileType Type,
                                               bool AddArch) const;
 
+  virtual void addPointerAuthFlags(const llvm::opt::ArgList &DriverArgs,
+                                   llvm::opt::ArgStringList &CC1Args) const;
+
   /// Find the target-specific subdirectory for the current target triple under
   /// \p BaseDir, doing fallback triple searches as necessary.
   /// \return The subdirectory path if it exists.
