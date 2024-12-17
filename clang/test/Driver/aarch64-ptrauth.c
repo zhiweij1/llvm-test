@@ -59,7 +59,7 @@
 // PAUTHABI1:      "-cc1"{{.*}} "-triple" "aarch64-unknown-linux-pauthtest"
 // PAUTHABI1-SAME: "-fptrauth-intrinsics" "-fptrauth-calls" "-fptrauth-returns" "-fptrauth-auth-traps" "-fptrauth-vtable-pointer-address-discrimination" "-fptrauth-vtable-pointer-type-discrimination" "-fptrauth-type-info-vtable-pointer-discrimination" "-fptrauth-indirect-gotos" "-fptrauth-init-fini" "-fptrauth-init-fini-address-discrimination" "-faarch64-jump-table-hardening"
 // PAUTHABI1-SAME: "-target-abi" "pauthtest"
-// PAUTHABI1-NOT:  "-fptrauth-function-pointer-type-discrimination"
+// PAUTHABI1-NOT: "-fptrauth-function-pointer-type-discrimination"
 
 // RUN: %clang -### -c --target=aarch64-linux -mabi=pauthtest -fno-ptrauth-intrinsics \
 // RUN:   -fno-ptrauth-calls -fno-ptrauth-returns -fno-ptrauth-auth-traps \
@@ -81,14 +81,14 @@
 // PAUTHABI2:      "-cc1"
 // PAUTHABI2-SAME: "-target-abi" "pauthtest"
 // PAUTHABI2-NOT:  "-fptrauth-
-// PAUTHABI2-NOT:  "-faarch64-jump-table-hardening"
+// PAUTHABI2-NOT: "-faarch64-jump-table-hardening"
 
 //// Non-linux OS: pauthtest environment does not correspond to pauthtest ABI; aapcs is the default.
 // RUN: %clang -### -c --target=aarch64-pauthtest %s 2>&1 | FileCheck %s --check-prefix=PAUTHABI3
 // PAUTHABI3:      "-cc1"
 // PAUTHABI3-SAME: "-target-abi" "aapcs"
 // PAUTHABI3-NOT:  "-fptrauth-
-// PAUTHABI3-NOT:  "-faarch64-jump-table-hardening"
+// PAUTHABI3-NOT: "-faarch64-jump-table-hardening"
 
 //// Non-pauthtest ABI.
 // RUN: not %clang -### -c --target=aarch64-linux -fptrauth-intrinsics -fptrauth-calls -fptrauth-returns -fptrauth-auth-traps \
