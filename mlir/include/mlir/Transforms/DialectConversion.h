@@ -18,7 +18,6 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/StringMap.h"
 #include <type_traits>
-#include <variant>
 
 namespace mlir {
 
@@ -405,13 +404,13 @@ private:
                    ConversionCallbackFn>
   wrapCallback(FnT &&callback) const {
     return [callback = std::forward<FnT>(callback)](
-               std::variant<Type, Value> type,
+               PointerUnion<Type, Value> typeOrValue,
                SmallVectorImpl<Type> &results) -> std::optional<LogicalResult> {
       T derivedType;
-      if (Type *t = std::get_if<Type>(&type)) {
-        derivedType = dyn_cast<T>(*t);
-      } else if (Value *v = std::get_if<Value>(&type)) {
-        derivedType = dyn_cast<T>(v->getType());
+      if (Type t = dyn_cast<Type>(typeOrValue)) {
+        derivedType = dyn_cast<T>(t);
+      } else if (Value v = dyn_cast<Value>(typeOrValue)) {
+        derivedType = dyn_cast<T>(v.getType());
       } else {
         llvm_unreachable("unexpected variant");
       }
@@ -429,13 +428,13 @@ private:
   wrapCallback(FnT &&callback) {
     hasContextAwareTypeConversions = true;
     return [callback = std::forward<FnT>(callback)](
-               std::variant<Type, Value> type,
+               PointerUnion<Type, Value> typeOrValue,
                SmallVectorImpl<Type> &results) -> std::optional<LogicalResult> {
-      if (Type *t = std::get_if<Type>(&type)) {
+      if (Type t = dyn_cast<Type>(typeOrValue)) {
         // Context-aware type conversion was called with a type.
         return std::nullopt;
-      } else if (Value *v = std::get_if<Value>(&type)) {
-        return callback(*v, results);
+      } else if (Value v = dyn_cast<Value>(typeOrValue)) {
+        return callback(v, results);
       }
       llvm_unreachable("unexpected variant");
       return std::nullopt;
