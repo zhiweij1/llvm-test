@@ -2905,9 +2905,8 @@ LogicalResult TypeConverter::convertType(Value v,
 
   // If this type converter does not have context-aware type conversions, call
   // the type-based overload, which has caching.
-  if (!hasContextAwareTypeConversions) {
+  if (!hasContextAwareTypeConversions)
     return convertType(v.getType(), results);
-  }
 
   // Walk the added converters in reverse order to apply the most recently
   // registered first.

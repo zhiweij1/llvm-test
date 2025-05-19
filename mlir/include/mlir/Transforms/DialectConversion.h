@@ -361,7 +361,7 @@ private:
   /// types is empty, the type is removed and any usages of the existing value
   /// are expected to be removed during conversion.
   using ConversionCallbackFn = std::function<std::optional<LogicalResult>(
-      std::variant<Type, Value>, SmallVectorImpl<Type> &)>;
+      PointerUnion<Type, Value>, SmallVectorImpl<Type> &)>;
 
   /// The signature of the callback used to materialize a source conversion.
   ///
