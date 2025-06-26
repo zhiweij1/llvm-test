@@ -4449,7 +4449,7 @@ determineSVEStackObjectOffsets(MachineFunction &MF, bool AssignOffsets,
       continue;
 
     if (MFI.getStackID(FI) != TargetStackID::ScalableVector &&
-        MFI.getStackID(FI) != TargetStackID::ScalablePredVector)
+        MFI.getStackID(FI) != TargetStackID::ScalablePredicateVector)
       continue;
 
     ObjectsToAllocate.push_back(FI);
