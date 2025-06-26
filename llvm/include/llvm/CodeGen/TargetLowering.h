@@ -4344,6 +4344,7 @@ public:
   /// bitwise ops etc.
   virtual SDValue SimplifyMultipleUseDemandedBitsForTargetNode(
       SDValue Op, const APInt &DemandedBits, const APInt &DemandedElts,
+      const APInt &DoNotPoisonEltMask,
       SelectionDAG &DAG, unsigned Depth) const;
 
   /// Return true if this function can prove that \p Op is never poison

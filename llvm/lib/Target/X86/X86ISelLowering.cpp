@@ -44959,6 +44959,7 @@ bool X86TargetLowering::SimplifyDemandedBitsForTargetNode(
 
 SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
     SDValue Op, const APInt &DemandedBits, const APInt &DemandedElts,
+    const APInt &DoNotPoisonEltMask,
     SelectionDAG &DAG, unsigned Depth) const {
   int NumElts = DemandedElts.getBitWidth();
   unsigned Opc = Op.getOpcode();
@@ -44972,7 +44973,8 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
     auto *CIdx = dyn_cast<ConstantSDNode>(Op.getOperand(2));
     MVT VecVT = Vec.getSimpleValueType();
     if (CIdx && CIdx->getAPIntValue().ult(VecVT.getVectorNumElements()) &&
-        !DemandedElts[CIdx->getZExtValue()])
+        !DemandedElts[CIdx->getZExtValue()] &&
+        !DoNotPoisonEltMask[CIdx->getZExtValue()])
       return Vec;
     break;
   }
@@ -45007,7 +45009,7 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
     SDValue LHS = Op.getOperand(1);
     SDValue RHS = Op.getOperand(2);
 
-    KnownBits CondKnown = DAG.computeKnownBits(Cond, DemandedElts, Depth + 1);
+    KnownBits CondKnown = DAG.computeKnownBits(Cond, DemandedElts | DoNotPoisonEltMask, Depth + 1);
     if (CondKnown.isNegative())
       return LHS;
     if (CondKnown.isNonNegative())
@@ -45019,8 +45021,8 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
     SDValue LHS = Op.getOperand(0);
     SDValue RHS = Op.getOperand(1);
 
-    KnownBits LHSKnown = DAG.computeKnownBits(LHS, DemandedElts, Depth + 1);
-    KnownBits RHSKnown = DAG.computeKnownBits(RHS, DemandedElts, Depth + 1);
+    KnownBits LHSKnown = DAG.computeKnownBits(LHS, DemandedElts | DoNotPoisonEltMask, Depth + 1);
+    KnownBits RHSKnown = DAG.computeKnownBits(RHS, DemandedElts | DoNotPoisonEltMask, Depth + 1);
 
     // If all of the demanded bits are known 0 on LHS and known 0 on RHS, then
     // the (inverted) LHS bits cannot contribute to the result of the 'andn' in
@@ -45034,7 +45036,8 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
   APInt ShuffleUndef, ShuffleZero;
   SmallVector<int, 16> ShuffleMask;
   SmallVector<SDValue, 2> ShuffleOps;
-  if (getTargetShuffleInputs(Op, DemandedElts, ShuffleOps, ShuffleMask,
+  if (getTargetShuffleInputs(Op, DemandedElts | DoNotPoisonEltMask,
+                             ShuffleOps, ShuffleMask,
                              ShuffleUndef, ShuffleZero, DAG, Depth, false)) {
     // If all the demanded elts are from one operand and are inline,
     // then we can use the operand directly.
@@ -45053,7 +45056,7 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
       APInt IdentityOp = APInt::getAllOnes(NumOps);
       for (int i = 0; i != NumElts; ++i) {
         int M = ShuffleMask[i];
-        if (!DemandedElts[i] || ShuffleUndef[i])
+        if (!(DemandedElts[i] || DoNotPoisonEltMask[i]) || ShuffleUndef[i])
           continue;
         int OpIdx = M / NumElts;
         int EltIdx = M % NumElts;
@@ -45074,7 +45077,7 @@ SDValue X86TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
   }
 
   return TargetLowering::SimplifyMultipleUseDemandedBitsForTargetNode(
-      Op, DemandedBits, DemandedElts, DAG, Depth);
+      Op, DemandedBits, DemandedElts, DoNotPoisonEltMask, DAG, Depth);
 }
 
 bool X86TargetLowering::isGuaranteedNotToBeUndefOrPoisonForTargetNode(
