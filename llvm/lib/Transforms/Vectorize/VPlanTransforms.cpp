@@ -2899,6 +2899,7 @@ static VPExpressionRecipe *
 tryToMatchAndCreateMulAccumulateReduction(VPReductionRecipe *Red,
                                           VPCostContext &Ctx, VFRange &Range) {
   using namespace VPlanPatternMatch;
+  bool IsPartialReduction = isa<VPPartialReductionRecipe>(Red);
 
   unsigned Opcode = RecurrenceDescriptor::getOpcode(Red->getRecurrenceKind());
   if (Opcode != Instruction::Add)
@@ -2955,12 +2956,14 @@ tryToMatchAndCreateMulAccumulateReduction(VPReductionRecipe *Red,
 
     // Match reduce.add(mul(ext, ext)).
     if (RecipeA && RecipeB &&
-        (RecipeA->getOpcode() == RecipeB->getOpcode() || A == B) &&
+        (RecipeA->getOpcode() == RecipeB->getOpcode() || A == B ||
+         IsPartialReduction) &&
         match(RecipeA, m_ZExtOrSExt(m_VPValue())) &&
         match(RecipeB, m_ZExtOrSExt(m_VPValue())) &&
-        IsMulAccValidAndClampRange(RecipeA->getOpcode() ==
-                                       Instruction::CastOps::ZExt,
-                                   MulR, RecipeA, RecipeB, nullptr, Sub)) {
+        (IsPartialReduction ||
+         IsMulAccValidAndClampRange(RecipeA->getOpcode() ==
+                                        Instruction::CastOps::ZExt,
+                                    MulR, RecipeA, RecipeB, nullptr, Sub))) {
       if (Sub)
         return new VPExpressionRecipe(
             RecipeA, RecipeB, MulR,
