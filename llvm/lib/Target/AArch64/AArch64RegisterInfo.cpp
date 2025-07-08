@@ -644,8 +644,7 @@ bool AArch64RegisterInfo::hasBasePointer(const MachineFunction &MF) const {
     if (ST.hasSVE() || ST.isStreaming()) {
       // Frames that have variable sized objects and scalable SVE objects,
       // should always use a basepointer.
-      if (!AFI->hasCalculatedStackSizeSVE() || AFI->getStackSizeZPR() ||
-          AFI->getStackSizePPR())
+      if (!AFI->hasCalculatedStackSizeSVE() || AFI->hasSVEStackSize())
         return true;
     }
 
@@ -785,8 +784,8 @@ AArch64RegisterInfo::useFPForScavengingIndex(const MachineFunction &MF) const {
   assert((!MF.getSubtarget<AArch64Subtarget>().hasSVE() ||
           AFI->hasCalculatedStackSizeSVE()) &&
          "Expected SVE area to be calculated by this point");
-  return TFI.hasFP(MF) && !hasStackRealignment(MF) && !AFI->getStackSizeZPR() &&
-         !AFI->getStackSizePPR() && !AFI->hasStackHazardSlotIndex();
+  return TFI.hasFP(MF) && !hasStackRealignment(MF) && !AFI->hasSVEStackSize() &&
+         !AFI->hasStackHazardSlotIndex();
 }
 
 bool AArch64RegisterInfo::requiresFrameIndexScavenging(
