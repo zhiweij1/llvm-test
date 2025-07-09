@@ -4205,9 +4205,7 @@ void AArch64FrameLowering::determineCalleeSaves(MachineFunction &MF,
   // instructions.
   AFI->setCalleeSavedStackSize(AlignedCSStackSize);
   AFI->setCalleeSaveStackHasFreeSpace(AlignedCSStackSize != CSStackSize);
-
-  AFI->setZPRCalleeSavedStackSize(ZPRCSStackSize);
-  AFI->setPPRCalleeSavedStackSize(alignTo(PPRCSStackSize, 16));
+  AFI->setSVECalleeSavedStackSize(ZPRCSStackSize, alignTo(PPRCSStackSize, 16));
 }
 
 bool AArch64FrameLowering::assignCalleeSavedSpillSlots(

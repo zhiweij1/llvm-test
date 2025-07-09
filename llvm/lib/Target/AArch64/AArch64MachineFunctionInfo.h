@@ -409,21 +409,15 @@ public:
   }
 
   // Saves the CalleeSavedStackSize for SVE vectors in 'scalable bytes'
-  void setZPRCalleeSavedStackSize(unsigned Size) {
-    ZPRCalleeSavedStackSize = Size;
+  void setSVECalleeSavedStackSize(unsigned ZPR, unsigned PPR = 0) {
+    ZPRCalleeSavedStackSize = ZPR;
+    PPRCalleeSavedStackSize = PPR;
     HasSVECalleeSavedStackSize = true;
   }
   unsigned getZPRCalleeSavedStackSize() const {
     assert(HasSVECalleeSavedStackSize &&
            "ZPRCalleeSavedStackSize has not been calculated");
     return ZPRCalleeSavedStackSize;
-  }
-
-  // Saves the CalleeSavedStackSize for SVE predicate vectors in 'scalable
-  // bytes'
-  void setPPRCalleeSavedStackSize(unsigned Size) {
-    PPRCalleeSavedStackSize = Size;
-    HasSVECalleeSavedStackSize = true;
   }
   unsigned getPPRCalleeSavedStackSize() const {
     assert(HasSVECalleeSavedStackSize &&
@@ -616,7 +610,8 @@ private:
 namespace yaml {
 struct AArch64FunctionInfo final : public yaml::MachineFunctionInfo {
   std::optional<bool> HasRedZone;
-  std::optional<uint64_t> StackSizeSVE;
+  std::optional<uint64_t> StackSizeZPR;
+  std::optional<uint64_t> StackSizePPR;
 
   AArch64FunctionInfo() = default;
   AArch64FunctionInfo(const llvm::AArch64FunctionInfo &MFI);
@@ -628,7 +623,8 @@ struct AArch64FunctionInfo final : public yaml::MachineFunctionInfo {
 template <> struct MappingTraits<AArch64FunctionInfo> {
   static void mapping(IO &YamlIO, AArch64FunctionInfo &MFI) {
     YamlIO.mapOptional("hasRedZone", MFI.HasRedZone);
-    YamlIO.mapOptional("stackSizeSVE", MFI.StackSizeSVE);
+    YamlIO.mapOptional("stackSizeZPR", MFI.StackSizeZPR);
+    YamlIO.mapOptional("stackSizePPR", MFI.StackSizePPR);
   }
 };
 
