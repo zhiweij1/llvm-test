@@ -298,7 +298,7 @@ public:
     TailCallReservedStack = bytes;
   }
 
-  void setStackSizeSVE(uint64_t ZPR, uint64_t PPR = 0) {
+  void setStackSizeSVE(uint64_t ZPR, uint64_t PPR) {
     StackSizeZPR = ZPR;
     StackSizePPR = PPR;
     HasCalculatedStackSizeSVE = true;
@@ -409,7 +409,7 @@ public:
   }
 
   // Saves the CalleeSavedStackSize for SVE vectors in 'scalable bytes'
-  void setSVECalleeSavedStackSize(unsigned ZPR, unsigned PPR = 0) {
+  void setSVECalleeSavedStackSize(unsigned ZPR, unsigned PPR) {
     ZPRCalleeSavedStackSize = ZPR;
     PPRCalleeSavedStackSize = PPR;
     HasSVECalleeSavedStackSize = true;
@@ -426,9 +426,7 @@ public:
   }
 
   unsigned getSVECalleeSavedStackSize() const {
-    assert(HasSVECalleeSavedStackSize &&
-           "SVECalleeSavedStackSize has not been calculated");
-    return PPRCalleeSavedStackSize + ZPRCalleeSavedStackSize;
+    return getZPRCalleeSavedStackSize() + getPPRCalleeSavedStackSize();
   }
 
   void incNumLocalDynamicTLSAccesses() { ++NumLocalDynamicTLSAccesses; }
