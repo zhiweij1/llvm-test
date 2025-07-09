@@ -335,7 +335,7 @@ static Register findScratchNonCalleeSaveRegister(MachineBasicBlock *MBB,
                                                  bool HasCall = false);
 static bool requiresSaveVG(const MachineFunction &MF);
 
-// Conservatively, returns true if the function is likely to have an SVE vectors
+// Conservatively, returns true if the function is likely to have SVE vectors
 // on the stack. This function is safe to be called before callee-saves or
 // object offsets have been determined.
 static bool isLikelyToHaveSVEStack(MachineFunction &MF) {
@@ -348,7 +348,7 @@ static bool isLikelyToHaveSVEStack(MachineFunction &MF) {
 
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   for (int FI = MFI.getObjectIndexBegin(); FI < MFI.getObjectIndexEnd(); FI++) {
-    if (MFI.getStackID(FI) == TargetStackID::ScalableVector)
+    if (MFI.isScalableStackID(FI))
       return true;
   }
 
