@@ -152,8 +152,6 @@ private:
   bool shouldCombineCSRLocalStackBump(MachineFunction &MF,
                                       uint64_t StackBumpBytes) const;
 
-  SVEStackSizes estimateSVEStackObjectOffsets(MachineFunction &MF) const;
-  void assignSVEStackObjectOffsets(MachineFunction &MF) const;
   bool shouldCombineCSRLocalStackBumpInEpilogue(MachineBasicBlock &MBB,
                                                 uint64_t StackBumpBytes) const;
   void emitCalleeSavedGPRLocations(MachineBasicBlock &MBB,

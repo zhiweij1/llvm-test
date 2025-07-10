@@ -334,6 +334,14 @@ static Register findScratchNonCalleeSaveRegister(MachineBasicBlock *MBB,
                                                  bool HasCall = false);
 static bool requiresSaveVG(const MachineFunction &MF);
 
+enum class AssignObjectOffsets { No, Yes };
+/// Process all the SVE stack objects and the SVE stack size and offsets for
+/// each object. If AssignOffsets is "Yes", the offsets get assigned (and SVE
+/// stack sizes set). Returns the size of the SVE stack.
+static SVEStackSizes determineSVEStackSizes(MachineFunction &MF,
+                                            AssignObjectOffsets AssignOffsets,
+                                            bool SplitSVEObjects = false);
+
 static unsigned getStackHazardSize(const MachineFunction &MF) {
   return MF.getSubtarget<AArch64Subtarget>().getStreamingHazardSize();
 }
@@ -4117,7 +4125,7 @@ void AArch64FrameLowering::determineCalleeSaves(MachineFunction &MF,
 
   // If any callee-saved registers are used, the frame cannot be eliminated.
   auto [ZPRLocalStackSize, PPRLocalStackSize] =
-      estimateSVEStackObjectOffsets(MF);
+      determineSVEStackSizes(MF, AssignObjectOffsets::No);
   int64_t SVELocals = ZPRLocalStackSize + PPRLocalStackSize;
   int64_t SVEStackSize =
       alignTo(ZPRCSStackSize + PPRCSStackSize + SVELocals, 16);
@@ -4367,15 +4375,11 @@ static bool getSVECalleeSaveSlotRange(const MachineFrameInfo &MFI,
   return Min != std::numeric_limits<int>::max();
 }
 
-// Process all the SVE stack objects and determine offsets for each
-// object. If AssignOffsets is true, the offsets get assigned.
-// Fills in the first and last callee-saved frame indices into
-// Min/MaxCSFrameIndex, respectively.
-// Returns the size of the stack.
-static SVEStackSizes
-determineSVEStackObjectOffsets(MachineFunction &MF, bool AssignOffsets,
-                               bool SplitSVEObjects = false) {
+static SVEStackSizes determineSVEStackSizes(MachineFunction &MF,
+                                            AssignObjectOffsets AssignOffsets,
+                                            bool SplitSVEObjects) {
   MachineFrameInfo &MFI = MF.getFrameInfo();
+  auto *AFI = MF.getInfo<AArch64FunctionInfo>();
 
   SVEStackSizes SVEStack{};
 
@@ -4400,7 +4404,9 @@ determineSVEStackObjectOffsets(MachineFunction &MF, bool AssignOffsets,
                                                                : PPRStackTop;
   };
 
-  auto Assign = [&MFI](int FI, int64_t Offset) {
+  auto Assign = [&MFI, AssignOffsets](int FI, int64_t Offset) {
+    if (AssignOffsets == AssignObjectOffsets::No)
+      return;
     LLVM_DEBUG(dbgs() << "alloc FI(" << FI << ") at SP[" << Offset << "]\n");
     MFI.setObjectOffset(FI, Offset);
   };
@@ -4412,8 +4418,7 @@ determineSVEStackObjectOffsets(MachineFunction &MF, bool AssignOffsets,
       uint64_t &StackTop = StackForObject(FI, ZPRStackTop, PPRStackTop);
       StackTop += MFI.getObjectSize(FI);
       StackTop = alignTo(StackTop, MFI.getObjectAlign(FI));
-      if (AssignOffsets)
-        Assign(FI, -int64_t(StackTop));
+      Assign(FI, -int64_t(StackTop));
     }
   }
 
@@ -4458,25 +4463,16 @@ determineSVEStackObjectOffsets(MachineFunction &MF, bool AssignOffsets,
 
     uint64_t &StackTop = StackForObject(FI, ZPRStackTop, PPRStackTop);
     StackTop = alignTo(StackTop + MFI.getObjectSize(FI), Alignment);
-    if (AssignOffsets)
-      Assign(FI, -int64_t(StackTop));
+    Assign(FI, -int64_t(StackTop));
   }
 
   PPRStackTop = alignTo(PPRStackTop, Align(16U));
   ZPRStackTop = alignTo(ZPRStackTop, Align(16U));
+
+  if (AssignOffsets == AssignObjectOffsets::Yes)
+    AFI->setStackSizeSVE(SVEStack.ZPRStackSize, SVEStack.PPRStackSize);
+
   return SVEStack;
-}
-
-SVEStackSizes
-AArch64FrameLowering::estimateSVEStackObjectOffsets(MachineFunction &MF) const {
-  return determineSVEStackObjectOffsets(MF, false);
-}
-
-void AArch64FrameLowering::assignSVEStackObjectOffsets(
-    MachineFunction &MF) const {
-  auto [ZPRStackSize, PPRStackSize] = determineSVEStackObjectOffsets(MF, true);
-  MF.getInfo<AArch64FunctionInfo>()->setStackSizeSVE(ZPRStackSize,
-                                                     PPRStackSize);
 }
 
 /// Attempts to scavenge a register from \p ScavengeableRegs given the used
@@ -4790,7 +4786,7 @@ void AArch64FrameLowering::processFunctionBeforeFrameFinalized(
   assert(getStackGrowthDirection() == TargetFrameLowering::StackGrowsDown &&
          "Upwards growing stack unsupported");
 
-  assignSVEStackObjectOffsets(MF);
+  (void)determineSVEStackSizes(MF, AssignObjectOffsets::Yes);
 
   // If this function isn't doing Win64-style C++ EH, we don't need to do
   // anything.
