@@ -20,8 +20,8 @@
 namespace llvm {
 
 struct SVEStackSizes {
-  int64_t ZPRStackSize{0};
-  int64_t PPRStackSize{0};
+  uint64_t ZPRStackSize{0};
+  uint64_t PPRStackSize{0};
 };
 
 class AArch64FrameLowering : public TargetFrameLowering {
@@ -153,7 +153,7 @@ private:
                                       uint64_t StackBumpBytes) const;
 
   SVEStackSizes estimateSVEStackObjectOffsets(MachineFunction &MF) const;
-  SVEStackSizes assignSVEStackObjectOffsets(MachineFunction &MF) const;
+  void assignSVEStackObjectOffsets(MachineFunction &MF) const;
   bool shouldCombineCSRLocalStackBumpInEpilogue(MachineBasicBlock &MBB,
                                                 uint64_t StackBumpBytes) const;
   void emitCalleeSavedGPRLocations(MachineBasicBlock &MBB,

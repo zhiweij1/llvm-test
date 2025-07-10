@@ -4382,8 +4382,8 @@ determineSVEStackObjectOffsets(MachineFunction &MF, bool AssignOffsets,
   // With SplitSVEObjects we maintain separate stack offsets for predicates
   // (PPRs) and SVE vectors (ZPRs). When SplitSVEObjects is disabled predicates
   // are included in the SVE vector area.
-  int64_t &ZPROffset = SVEStack.ZPRStackSize;
-  int64_t &PPROffset =
+  uint64_t &ZPRStackTop = SVEStack.ZPRStackSize;
+  uint64_t &PPRStackTop =
       SplitSVEObjects ? SVEStack.PPRStackSize : SVEStack.ZPRStackSize;
 
 #ifndef NDEBUG
@@ -4394,10 +4394,10 @@ determineSVEStackObjectOffsets(MachineFunction &MF, bool AssignOffsets,
            "reference.");
 #endif
 
-  auto OffsetForObject = [&](int FI, int64_t &ZPROffset,
-                             int64_t &PPROffset) -> int64_t & {
-    return MFI.getStackID(FI) == TargetStackID::ScalableVector ? ZPROffset
-                                                               : PPROffset;
+  auto StackForObject = [&](int FI, uint64_t &ZPRStackTop,
+                            uint64_t &PPRStackTop) -> uint64_t & {
+    return MFI.getStackID(FI) == TargetStackID::ScalableVector ? ZPRStackTop
+                                                               : PPRStackTop;
   };
 
   auto Assign = [&MFI](int FI, int64_t Offset) {
@@ -4409,19 +4409,17 @@ determineSVEStackObjectOffsets(MachineFunction &MF, bool AssignOffsets,
   int MinCSFrameIndex, MaxCSFrameIndex;
   if (getSVECalleeSaveSlotRange(MFI, MinCSFrameIndex, MaxCSFrameIndex)) {
     for (int FI = MinCSFrameIndex; FI <= MaxCSFrameIndex; ++FI) {
-      int64_t &Offset = OffsetForObject(FI, ZPROffset, PPROffset);
-      Offset += MFI.getObjectSize(FI);
-      Offset = alignTo(Offset, MFI.getObjectAlign(FI));
-      if (AssignOffsets) {
-        LLVM_DEBUG(dbgs() << "FI: " << FI << ", Offset: " << -Offset << "\n");
-        Assign(FI, -Offset);
-      }
+      uint64_t &StackTop = StackForObject(FI, ZPRStackTop, PPRStackTop);
+      StackTop += MFI.getObjectSize(FI);
+      StackTop = alignTo(StackTop, MFI.getObjectAlign(FI));
+      if (AssignOffsets)
+        Assign(FI, -int64_t(StackTop));
     }
   }
 
   // Ensure the CS area is 16-byte aligned.
-  PPROffset = alignTo(PPROffset, Align(16U));
-  ZPROffset = alignTo(ZPROffset, Align(16U));
+  PPRStackTop = alignTo(PPRStackTop, Align(16U));
+  ZPRStackTop = alignTo(ZPRStackTop, Align(16U));
 
   // Create a buffer of SVE objects to allocate and sort it.
   SmallVector<int, 8> ObjectsToAllocate;
@@ -4458,14 +4456,14 @@ determineSVEStackObjectOffsets(MachineFunction &MF, bool AssignOffsets,
       report_fatal_error(
           "Alignment of scalable vectors > 16 bytes is not yet supported");
 
-    int64_t &Offset = OffsetForObject(FI, ZPROffset, PPROffset);
-    Offset = alignTo(Offset + MFI.getObjectSize(FI), Alignment);
+    uint64_t &StackTop = StackForObject(FI, ZPRStackTop, PPRStackTop);
+    StackTop = alignTo(StackTop + MFI.getObjectSize(FI), Alignment);
     if (AssignOffsets)
-      Assign(FI, -Offset);
+      Assign(FI, -int64_t(StackTop));
   }
 
-  PPROffset = alignTo(PPROffset, Align(16U));
-  ZPROffset = alignTo(ZPROffset, Align(16U));
+  PPRStackTop = alignTo(PPRStackTop, Align(16U));
+  ZPRStackTop = alignTo(ZPRStackTop, Align(16U));
   return SVEStack;
 }
 
@@ -4474,9 +4472,11 @@ AArch64FrameLowering::estimateSVEStackObjectOffsets(MachineFunction &MF) const {
   return determineSVEStackObjectOffsets(MF, false);
 }
 
-SVEStackSizes
-AArch64FrameLowering::assignSVEStackObjectOffsets(MachineFunction &MF) const {
-  return determineSVEStackObjectOffsets(MF, true);
+void AArch64FrameLowering::assignSVEStackObjectOffsets(
+    MachineFunction &MF) const {
+  auto [ZPRStackSize, PPRStackSize] = determineSVEStackObjectOffsets(MF, true);
+  MF.getInfo<AArch64FunctionInfo>()->setStackSizeSVE(ZPRStackSize,
+                                                     PPRStackSize);
 }
 
 /// Attempts to scavenge a register from \p ScavengeableRegs given the used
@@ -4790,8 +4790,7 @@ void AArch64FrameLowering::processFunctionBeforeFrameFinalized(
   assert(getStackGrowthDirection() == TargetFrameLowering::StackGrowsDown &&
          "Upwards growing stack unsupported");
 
-  auto [ZPRStackSize, PPRStackSize] = assignSVEStackObjectOffsets(MF);
-  AFI->setStackSizeSVE(ZPRStackSize, PPRStackSize);
+  assignSVEStackObjectOffsets(MF);
 
   // If this function isn't doing Win64-style C++ EH, we don't need to do
   // anything.
