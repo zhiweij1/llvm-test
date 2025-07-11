@@ -4126,8 +4126,8 @@ void AArch64FrameLowering::determineCalleeSaves(MachineFunction &MF,
   // If any callee-saved registers are used, the frame cannot be eliminated.
   auto [ZPRLocalStackSize, PPRLocalStackSize] =
       determineSVEStackSizes(MF, AssignObjectOffsets::No);
-  int64_t SVELocals = ZPRLocalStackSize + PPRLocalStackSize;
-  int64_t SVEStackSize =
+  uint64_t SVELocals = ZPRLocalStackSize + PPRLocalStackSize;
+  uint64_t SVEStackSize =
       alignTo(ZPRCSStackSize + PPRCSStackSize + SVELocals, 16);
   bool CanEliminateFrame = (SavedRegs.count() == 0) && !SVEStackSize;
 
@@ -4398,28 +4398,37 @@ static SVEStackSizes determineSVEStackSizes(MachineFunction &MF,
            "reference.");
 #endif
 
-  auto StackForObject = [&](int FI, uint64_t &ZPRStackTop,
-                            uint64_t &PPRStackTop) -> uint64_t & {
-    return MFI.getStackID(FI) == TargetStackID::ScalableVector ? ZPRStackTop
-                                                               : PPRStackTop;
-  };
+  auto AllocateObject = [&](int FI) {
+    uint64_t &StackTop = MFI.getStackID(FI) == TargetStackID::ScalableVector
+                             ? ZPRStackTop
+                             : PPRStackTop;
 
-  auto Assign = [&MFI, AssignOffsets](int FI, int64_t Offset) {
-    if (AssignOffsets == AssignObjectOffsets::No)
-      return;
+    // FIXME: Given that the length of SVE vectors is not necessarily a power of
+    // two, we'd need to align every object dynamically at runtime if the
+    // alignment is larger than 16. This is not yet supported.
+    Align Alignment = MFI.getObjectAlign(FI);
+    if (Alignment > Align(16))
+      report_fatal_error(
+          "Alignment of scalable vectors > 16 bytes is not yet supported");
+
+    StackTop += MFI.getObjectSize(FI);
+    StackTop = alignTo(StackTop, Alignment);
+
+    assert(StackTop < std::numeric_limits<int64_t>::max() &&
+           "SVE StackTop far too large?!");
+
+    int64_t Offset = -int64_t(StackTop);
+    if (AssignOffsets == AssignObjectOffsets::Yes)
+      MFI.setObjectOffset(FI, Offset);
+
     LLVM_DEBUG(dbgs() << "alloc FI(" << FI << ") at SP[" << Offset << "]\n");
-    MFI.setObjectOffset(FI, Offset);
   };
 
   // Then process all callee saved slots.
   int MinCSFrameIndex, MaxCSFrameIndex;
   if (getSVECalleeSaveSlotRange(MFI, MinCSFrameIndex, MaxCSFrameIndex)) {
-    for (int FI = MinCSFrameIndex; FI <= MaxCSFrameIndex; ++FI) {
-      uint64_t &StackTop = StackForObject(FI, ZPRStackTop, PPRStackTop);
-      StackTop += MFI.getObjectSize(FI);
-      StackTop = alignTo(StackTop, MFI.getObjectAlign(FI));
-      Assign(FI, -int64_t(StackTop));
-    }
+    for (int FI = MinCSFrameIndex; FI <= MaxCSFrameIndex; ++FI)
+      AllocateObject(FI);
   }
 
   // Ensure the CS area is 16-byte aligned.
@@ -4452,19 +4461,8 @@ static SVEStackSizes determineSVEStackSizes(MachineFunction &MF,
   }
 
   // Allocate all SVE locals and spills
-  for (unsigned FI : ObjectsToAllocate) {
-    Align Alignment = MFI.getObjectAlign(FI);
-    // FIXME: Given that the length of SVE vectors is not necessarily a power of
-    // two, we'd need to align every object dynamically at runtime if the
-    // alignment is larger than 16. This is not yet supported.
-    if (Alignment > Align(16))
-      report_fatal_error(
-          "Alignment of scalable vectors > 16 bytes is not yet supported");
-
-    uint64_t &StackTop = StackForObject(FI, ZPRStackTop, PPRStackTop);
-    StackTop = alignTo(StackTop + MFI.getObjectSize(FI), Alignment);
-    Assign(FI, -int64_t(StackTop));
-  }
+  for (unsigned FI : ObjectsToAllocate)
+    AllocateObject(FI);
 
   PPRStackTop = alignTo(PPRStackTop, Align(16U));
   ZPRStackTop = alignTo(ZPRStackTop, Align(16U));
