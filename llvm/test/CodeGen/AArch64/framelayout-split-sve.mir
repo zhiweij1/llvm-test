@@ -42,6 +42,7 @@
   define aarch64_sve_vector_pcs void @save_restore_ppr_zpr() uwtable { entry: unreachable }
 
 ...
+---
 # +----------+
 # |scratchreg|  // x29 is used as scratch reg.
 # |----------|
@@ -136,8 +137,8 @@ body:             |
     STR_ZXI $z0, %stack.0, 0 :: (store (<vscale x 1 x s128>) into %stack.0)
     STR_PXI $p0, %stack.1, 0 :: (store (<vscale x 1 x s16>) into %stack.1)
     RET_ReallyLR
----
 ...
+---
 
 # Stack realignment is not supported with split-sve-objects, so we fallback to
 # the default hazard padding implementation. This does not prevent hazards
@@ -224,8 +225,8 @@ body:             |
 # UNWINDINFO:       DW_CFA_def_cfa_offset: +0
 # UNWINDINFO-NEXT:  DW_CFA_restore: reg30
 # UNWINDINFO-NEXT:  DW_CFA_restore: reg29
----
 ...
+---
 
 # +----------+
 # |scratchreg|  // x29 is used as scratch reg.
@@ -327,8 +328,8 @@ body:             |
     STR_PXI $p0, %stack.2, 0 :: (store (<vscale x 1 x s16>) into %stack.2)
 
     RET_ReallyLR
----
 ...
+---
 # +----------+
 # |  lr, fp  |  // frame record
 # +----------+ <- FP
@@ -418,8 +419,8 @@ body:             |
     STR_PXI $p0, %stack.2, 0 :: (store (<vscale x 1 x s16>) into %stack.2)
 
     RET_ReallyLR
----
 ...
+---
 # CHECK-LABEL: name: save_restore_ppr_zpr
 # CHECK: early-clobber $sp = frame-setup STRXpre killed $fp, $sp, -16 :: (store (s64) into %stack.8)
 # CHECK-NEXT: frame-setup CFI_INSTRUCTION def_cfa_offset 16
