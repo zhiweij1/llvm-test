@@ -2510,15 +2510,13 @@ static mlir::FlatSymbolRefAttr getOrGenImplicitDefaultDeclareMapper(
 
   // Return a reference to the contents of a derived type with one field.
   // Also return the field type.
-  const auto getFieldRef =
-      [&](mlir::Value rec, llvm::StringRef fieldName, mlir::Type fieldTy,
-          mlir::Type recType) -> std::tuple<mlir::Value, mlir::Type> {
+  const auto getFieldRef = [&](mlir::Value rec, llvm::StringRef fieldName,
+                               mlir::Type fieldTy, mlir::Type recType) {
     mlir::Value field = firOpBuilder.create<fir::FieldIndexOp>(
         loc, fir::FieldType::get(recType.getContext()), fieldName, recType,
         fir::getTypeParams(rec));
-    return {firOpBuilder.create<fir::CoordinateOp>(
-                loc, firOpBuilder.getRefType(fieldTy), rec, field),
-            fieldTy};
+    return firOpBuilder.create<fir::CoordinateOp>(
+        loc, firOpBuilder.getRefType(fieldTy), rec, field);
   };
 
   mlir::omp::DeclareMapperInfoOperands clauseOps;
@@ -2536,10 +2534,9 @@ static mlir::FlatSymbolRefAttr getOrGenImplicitDefaultDeclareMapper(
   for (const auto &entry : llvm::enumerate(recordType.getTypeList())) {
     const auto &memberName = entry.value().first;
     const auto &memberType = entry.value().second;
-    auto [ref, type] =
-        getFieldRef(declareOp.getBase(), memberName, memberType, recordType);
     mlir::FlatSymbolRefAttr mapperId;
-    if (auto recType = mlir::dyn_cast<fir::RecordType>(memberType)) {
+    if (auto recType = mlir::dyn_cast<fir::RecordType>(
+            fir::getFortranElementType(memberType))) {
       std::string mapperIdName =
           recType.getName().str() + llvm::omp::OmpDefaultMapperName;
       if (auto *sym = converter.getCurrentScope().FindSymbol(mapperIdName))
@@ -2551,6 +2548,8 @@ static mlir::FlatSymbolRefAttr getOrGenImplicitDefaultDeclareMapper(
                                                       mapperIdName);
     }
 
+    auto ref =
+        getFieldRef(declareOp.getBase(), memberName, memberType, recordType);
     llvm::SmallVector<mlir::Value> bounds;
     genBoundsOps(ref, bounds);
     mlir::Value mapOp = createMapInfoOp(
