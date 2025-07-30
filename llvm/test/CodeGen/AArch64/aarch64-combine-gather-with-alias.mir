@@ -1,0 +1,42 @@
+# RUN: llc -run-pass=machine-combiner -mcpu=neoverse-n2 -mtriple=aarch64-none-linux-gnu -verify-machineinstrs %s -o - | FileCheck %s
+
+--- |
+  define void @aliasing_store_between_vector_loads(i64 %arg0, i64 %arg1, i64 %arg2, i64 %arg3) {
+  entry:
+    ret void
+  }
+
+...
+---
+name:            aliasing_store_between_vector_loads
+alignment:       4
+tracksRegLiveness: true
+body:             |
+  bb.0.entry:
+    liveins: $x0, $x1, $x2, $x3
+
+    ; CHECK-LABEL: name: aliasing_store_between_vector_loads
+    ; CHECK: [[BASE_PTR:%[0-9]+]]:gpr64common = COPY $x0
+    ; CHECK-NEXT: [[OFFSET_PTR:%[0-9]+]]:gpr64common = COPY $x1
+    ; CHECK-NEXT: [[ALIAS_ADDR:%[0-9]+]]:gpr64common = COPY $x2
+    ; CHECK-NEXT: [[OTHER_ADDR:%[0-9]+]]:gpr64common = COPY $x3
+    ; CHECK-NEXT: [[VEC1:%[0-9]+]]:fpr128 = LD1i32 %{{[0-9]+}}, 1, [[ALIAS_ADDR]]
+    ; CHECK-NEXT: [[CONST:%[0-9]+]]:gpr32 = MOVi32 99
+    ; CHECK-NEXT: STRWui [[CONST]], [[ALIAS_ADDR]], 0
+    ; CHECK-NEXT: [[VEC2:%[0-9]+]]:fpr128 = LD1i32 [[VEC1]], 2, killed [[ALIAS_ADDR]]
+    ; CHECK-NEXT: [[VEC3:%[0-9]+]]:fpr128 = LD1i32 [[VEC2]], 3, killed [[OTHER_ADDR]]
+    ; CHECK-NEXT: $q0 = COPY [[VEC3]]
+    ; CHECK-NEXT: RET_ReallyLR implicit $q0
+    %0:gpr64common = COPY $x0
+    %1:gpr64common = COPY $x1
+    %2:gpr64common = COPY $x2
+    %3:gpr64common = COPY $x3
+    %5:fpr32 = LDRSroX %0, killed %1, 0, 1
+    %6:fpr128 = SUBREG_TO_REG 0, killed %5, %subreg.ssub
+    %7:fpr128 = LD1i32 %6, 1, %2
+    %10:gpr32 = MOVi32imm 99
+    STRWui %10, %2, 0
+    %8:fpr128 = LD1i32 %7, 2, killed %2
+    %9:fpr128 = LD1i32 %8, 3, killed %3
+    $q0 = COPY %9
+    RET_ReallyLR implicit $q0

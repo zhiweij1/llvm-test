@@ -22,6 +22,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/CodeGen/CFIInstBuilder.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
@@ -85,6 +86,11 @@ static cl::opt<unsigned>
 static cl::opt<unsigned>
     BDisplacementBits("aarch64-b-offset-bits", cl::Hidden, cl::init(26),
                       cl::desc("Restrict range of B instructions (DEBUG)"));
+
+#define DEBUG_TYPE "aarch64-machine-combine"
+STATISTIC(NumGathersMatched, "Number of `gather`-like patterns matched");
+STATISTIC(NumGathersDroppedAliasing, "Number of `gather`-like patterns dropped "
+                                     "due to potential pointer aliasing");
 
 AArch64InstrInfo::AArch64InstrInfo(const AArch64Subtarget &STI)
     : AArch64GenInstrInfo(AArch64::ADJCALLSTACKDOWN, AArch64::ADJCALLSTACKUP,
@@ -7416,14 +7422,21 @@ static bool getGatherPattern(MachineInstr &Root,
   // 1. It has a single non-debug use (since we will be replacing the virtual
   // register)
   // 2. That the addressing mode only uses a single offset register.
+  // 3. The address operand does not have any users that are a COPY operation to
+  // a physical reg.
+  //    This could indicate that it is copied as part of an ABI of a function
+  //    call, which means that it may be modified in unexpected ways, see: <link
+  //    to github>
   auto *CurrInstr = MRI.getUniqueVRegDef(Root.getOperand(1).getReg());
   auto Range = llvm::seq<unsigned>(1, NumLanes - 1);
-  SmallSet<unsigned, 4> RemainingLanes(Range.begin(), Range.end());
+  SmallSet<unsigned, 16> RemainingLanes(Range.begin(), Range.end());
+  SmallSet<const MachineInstr *, 16> LoadInstrs = {};
   while (!RemainingLanes.empty() && CurrInstr &&
          CurrInstr->getOpcode() == LoadLaneOpCode &&
          MRI.hasOneNonDBGUse(CurrInstr->getOperand(0).getReg()) &&
          CurrInstr->getNumOperands() == 4) {
     RemainingLanes.erase(CurrInstr->getOperand(2).getImm());
+    LoadInstrs.insert(CurrInstr);
     CurrInstr = MRI.getUniqueVRegDef(CurrInstr->getOperand(1).getReg());
   }
 
@@ -7443,6 +7456,15 @@ static bool getGatherPattern(MachineInstr &Root,
   // Verify that it also has a single non debug use.
   if (!MRI.hasOneNonDBGUse(Lane0LoadReg))
     return false;
+
+  LoadInstrs.insert(MRI.getUniqueVRegDef(Lane0LoadReg));
+
+  // Conservative check that we can
+  const TargetInstrInfo *TII = MF->getSubtarget().getInstrInfo();
+  for (auto LoadA = LoadInstrs.begin(); LoadA != LoadInstrs.end(); ++LoadA)
+    for (auto LoadB = ++LoadA; LoadB != LoadInstrs.end(); ++LoadB)
+      if (!TII->areMemAccessesTriviallyDisjoint(**LoadA, **LoadB))
+        return false;
 
   switch (NumLanes) {
   case 4:
