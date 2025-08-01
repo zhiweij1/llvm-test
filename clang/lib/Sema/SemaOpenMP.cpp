@@ -16458,11 +16458,24 @@ OMPClause *SemaOpenMP::ActOnOpenMPMessageClause(Expr *ME,
     return nullptr;
   }
 
+  Stmt *HelperValStmt = nullptr;
+
+  OpenMPDirectiveKind DKind = DSAStack->getCurrentDirective();
+  OpenMPDirectiveKind CaptureRegion = getOpenMPCaptureRegionForClause(
+      DKind, OMPC_message, getLangOpts().OpenMP);
+  if (CaptureRegion != OMPD_unknown &&
+      !SemaRef.CurContext->isDependentContext()) {
+    ME = SemaRef.MakeFullExpr(ME).get();
+    llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
+    ME = tryBuildCapture(SemaRef, ME, Captures).get();
+    HelperValStmt = buildPreInits(getASTContext(), Captures);
+  }
+
   // Convert array type to pointer type if needed.
   ME = SemaRef.DefaultFunctionArrayLvalueConversion(ME).get();
 
-  return new (getASTContext())
-      OMPMessageClause(ME, StartLoc, LParenLoc, EndLoc);
+  return new (getASTContext()) OMPMessageClause(
+      ME, HelperValStmt, CaptureRegion, StartLoc, LParenLoc, EndLoc);
 }
 
 OMPClause *SemaOpenMP::ActOnOpenMPOrderClause(
