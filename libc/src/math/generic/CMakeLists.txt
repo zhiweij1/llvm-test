@@ -263,30 +263,6 @@ add_entrypoint_object(
 )
 
 add_header_library(
-  range_reduction
-  HDRS
-    range_reduction.h
-    range_reduction_fma.h
-  DEPENDS
-    libc.src.__support.FPUtil.fp_bits
-    libc.src.__support.FPUtil.fma
-    libc.src.__support.FPUtil.multiply_add
-    libc.src.__support.FPUtil.nearest_integer
-    libc.src.__support.common
-)
-
-add_header_library(
-  sincosf_utils
-  HDRS
-    sincosf_utils.h
-  DEPENDS
-    .range_reduction
-    libc.src.__support.FPUtil.fp_bits
-    libc.src.__support.FPUtil.polyeval
-    libc.src.__support.common
-)
-
-add_header_library(
   sincosf16_utils
   HDRS
     sincosf16_utils.h
@@ -313,15 +289,7 @@ add_entrypoint_object(
   HDRS
     ../cosf.h
   DEPENDS
-    .sincosf_utils
-    libc.src.errno.errno
-    libc.src.__support.FPUtil.basic_operations
-    libc.src.__support.FPUtil.fenv_impl
-    libc.src.__support.FPUtil.fp_bits
-    libc.src.__support.FPUtil.except_value_utils
-    libc.src.__support.FPUtil.fma
-    libc.src.__support.FPUtil.polyeval
-    libc.src.__support.macros.optimization
+    libc.src.__support.math.cosf
 )
 
 add_entrypoint_object(
@@ -350,7 +318,7 @@ add_entrypoint_object(
   HDRS
     ../cospif.h
   DEPENDS
-    .sincosf_utils
+    libc.src.__support.math.sincosf_utils
     libc.src.__support.FPUtil.fenv_impl
     libc.src.__support.FPUtil.fp_bits
     libc.src.__support.FPUtil.fma
@@ -402,8 +370,8 @@ add_entrypoint_object(
   HDRS
     ../sinf.h
   DEPENDS
-    .range_reduction
-    .sincosf_utils
+    libc.src.__support.math.range_reduction
+    libc.src.__support.math.sincosf_utils
     libc.src.errno.errno
     libc.src.__support.FPUtil.basic_operations
     libc.src.__support.FPUtil.fenv_impl
@@ -462,7 +430,7 @@ add_entrypoint_object(
   HDRS
     ../sinpif.h
   DEPENDS
-    .sincosf_utils
+    libc.src.__support.math.sincosf_utils
     libc.src.__support.FPUtil.fenv_impl
     libc.src.__support.FPUtil.fp_bits
     libc.src.__support.FPUtil.fma
@@ -479,8 +447,8 @@ add_entrypoint_object(
   HDRS
     ../sincosf.h
   DEPENDS
-    .range_reduction
-    .sincosf_utils
+    libc.src.__support.math.range_reduction
+    libc.src.__support.math.sincosf_utils
     libc.src.errno.errno
     libc.src.__support.FPUtil.fenv_impl
     libc.src.__support.FPUtil.fp_bits
@@ -534,8 +502,8 @@ add_entrypoint_object(
   HDRS
     ../tanf.h
   DEPENDS
-    .range_reduction
-    .sincosf_utils
+    libc.src.__support.math.range_reduction
+    libc.src.__support.math.sincosf_utils
     libc.src.errno.errno
     libc.src.__support.FPUtil.fenv_impl
     libc.src.__support.FPUtil.fenv_impl
@@ -573,7 +541,7 @@ add_entrypoint_object(
   HDRS
     ../tanpif.h
   DEPENDS
-    .sincosf_utils
+    libc.src.__support.math.sincosf_utils
     libc.src.__support.FPUtil.except_value_utils
     libc.src.__support.FPUtil.fenv_impl
     libc.src.__support.FPUtil.fp_bits
