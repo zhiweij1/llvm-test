@@ -65,6 +65,9 @@ public:
   Registers_x86();
   Registers_x86(const void *registers);
 
+  typedef uint32_t reg_t;
+  typedef uint32_t link_reg_t;
+
   bool        validRegister(int num) const;
   uint32_t    getRegister(int num) const;
   void        setRegister(int num, uint32_t value);
@@ -97,9 +100,6 @@ public:
   void      setESI(uint32_t value) { _registers.__esi = value; }
   uint32_t  getEDI() const         { return _registers.__edi; }
   void      setEDI(uint32_t value) { _registers.__edi = value; }
-
-  typedef uint32_t reg_t;
-  typedef uint32_t link_reg_t;
 
 private:
   struct GPRs {
@@ -286,6 +286,9 @@ public:
   Registers_x86_64();
   Registers_x86_64(const void *registers);
 
+  typedef uint64_t reg_t;
+  typedef uint64_t link_reg_t;
+
   bool        validRegister(int num) const;
   uint64_t    getRegister(int num) const;
   void        setRegister(int num, uint64_t value);
@@ -318,9 +321,6 @@ public:
   void      setR14(uint64_t value) { _registers.__r14 = value; }
   uint64_t  getR15() const         { return _registers.__r15; }
   void      setR15(uint64_t value) { _registers.__r15 = value; }
-
-  typedef uint64_t reg_t;
-  typedef uint64_t link_reg_t;
 
 private:
   struct GPRs {
@@ -608,6 +608,9 @@ public:
   Registers_ppc();
   Registers_ppc(const void *registers);
 
+  typedef uint32_t reg_t;
+  typedef uint32_t link_reg_t;
+
   bool        validRegister(int num) const;
   uint32_t    getRegister(int num) const;
   void        setRegister(int num, uint32_t value);
@@ -632,9 +635,6 @@ public:
   void      setCR(uint32_t value) { _registers.__cr = value; }
   uint64_t  getLR() const         { return _registers.__lr; }
   void      setLR(uint32_t value) { _registers.__lr = value; }
-
-  typedef uint32_t reg_t;
-  typedef uint32_t link_reg_t;
 
 private:
   struct ppc_thread_state_t {
@@ -1182,6 +1182,9 @@ class _LIBUNWIND_HIDDEN Registers_ppc64 {
 public:
   Registers_ppc64();
   Registers_ppc64(const void *registers);
+
+  typedef uint64_t reg_t;
+  typedef uint64_t link_reg_t;
 
   bool        validRegister(int num) const;
   uint64_t    getRegister(int num) const;
@@ -1843,6 +1846,9 @@ public:
   Registers_arm64(const Registers_arm64&);
   Registers_arm64& operator=(const Registers_arm64&);
 
+  typedef uint64_t reg_t;
+  typedef uint64_t __ptrauth_unwind_registers_arm64_link_reg link_reg_t;
+
   bool        validRegister(int num) const;
   uint64_t    getRegister(int num) const;
   void        setRegister(int num, uint64_t value);
@@ -1889,9 +1895,6 @@ public:
   }
   uint64_t getFP() const { return _registers.__fp; }
   void setFP(uint64_t value) { _registers.__fp = value; }
-
-  typedef uint64_t reg_t;
-  typedef uint64_t __ptrauth_unwind_registers_arm64_link_reg link_reg_t;
 
 #if __has_feature(ptrauth_calls)
   void
@@ -2198,6 +2201,9 @@ public:
   Registers_arm();
   Registers_arm(const void *registers);
 
+  typedef uint32_t reg_t;
+  typedef uint32_t link_reg_t;
+
   bool        validRegister(int num) const;
   uint32_t    getRegister(int num) const;
   void        setRegister(int num, uint32_t value);
@@ -2221,9 +2227,6 @@ public:
   void      setSP(uint32_t value) { _registers.__sp = value; }
   uint32_t  getIP() const         { return _registers.__pc; }
   void      setIP(uint32_t value) { _registers.__pc = value; }
-
-  typedef uint32_t reg_t;
-  typedef uint32_t link_reg_t;
 
   void saveVFPAsX() {
     assert(_use_X_for_vfp_save || !_saved_vfp_d0_d15);
@@ -2706,6 +2709,9 @@ public:
   Registers_or1k();
   Registers_or1k(const void *registers);
 
+  typedef uint32_t reg_t;
+  typedef uint32_t link_reg_t;
+
   bool        validRegister(int num) const;
   uint32_t    getRegister(int num) const;
   void        setRegister(int num, uint32_t value);
@@ -2904,6 +2910,9 @@ class _LIBUNWIND_HIDDEN Registers_mips_o32 {
 public:
   Registers_mips_o32();
   Registers_mips_o32(const void *registers);
+
+  typedef uint32_t reg_t;
+  typedef uint32_t link_reg_t;
 
   bool        validRegister(int num) const;
   uint32_t    getRegister(int num) const;
@@ -3240,6 +3249,9 @@ public:
   Registers_mips_newabi();
   Registers_mips_newabi(const void *registers);
 
+  typedef uint64_t reg_t;
+  typedef uint64_t link_reg_t;
+
   bool        validRegister(int num) const;
   uint64_t    getRegister(int num) const;
   void        setRegister(int num, uint64_t value);
@@ -3543,6 +3555,9 @@ public:
   Registers_sparc();
   Registers_sparc(const void *registers);
 
+  typedef uint32_t reg_t;
+  typedef uint32_t link_reg_t;
+
   bool        validRegister(int num) const;
   uint32_t    getRegister(int num) const;
   void        setRegister(int num, uint32_t value);
@@ -3729,6 +3744,9 @@ public:
   Registers_sparc64() = default;
   Registers_sparc64(const void *registers);
 
+  typedef uint64_t reg_t;
+  typedef uint64_t link_reg_t;
+
   bool validRegister(int num) const;
   uint64_t getRegister(int num) const;
   void setRegister(int num, uint64_t value);
@@ -3913,6 +3931,9 @@ class _LIBUNWIND_HIDDEN Registers_hexagon {
 public:
   Registers_hexagon();
   Registers_hexagon(const void *registers);
+
+  typedef uint32_t reg_t;
+  typedef uint32_t link_reg_t;
 
   bool        validRegister(int num) const;
   uint32_t    getRegister(int num) const;
@@ -4128,6 +4149,9 @@ class _LIBUNWIND_HIDDEN Registers_riscv {
 public:
   Registers_riscv();
   Registers_riscv(const void *registers);
+
+  typedef ::libunwind::reg_t reg_t;
+  typedef ::libunwind::reg_t link_reg_t;
 
   bool        validRegister(int num) const;
   reg_t       getRegister(int num) const;
@@ -4425,6 +4449,9 @@ class _LIBUNWIND_HIDDEN Registers_ve {
 public:
   Registers_ve();
   Registers_ve(const void *registers);
+
+  typedef uint64_t reg_t;
+  typedef uint64_t link_reg_t;
 
   bool        validRegister(int num) const;
   uint64_t    getRegister(int num) const;
@@ -4869,6 +4896,9 @@ public:
   Registers_s390x();
   Registers_s390x(const void *registers);
 
+  typedef uint64_t reg_t;
+  typedef uint64_t link_reg_t;
+
   bool        validRegister(int num) const;
   uint64_t    getRegister(int num) const;
   void        setRegister(int num, uint64_t value);
@@ -5156,6 +5186,9 @@ class _LIBUNWIND_HIDDEN Registers_loongarch {
 public:
   Registers_loongarch();
   Registers_loongarch(const void *registers);
+
+  typedef uint64_t reg_t;
+  typedef uint64_t link_reg_t;
 
   bool validRegister(int num) const;
   uint64_t getRegister(int num) const;
