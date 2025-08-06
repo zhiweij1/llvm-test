@@ -825,6 +825,17 @@ bool MachineSinkingLegacy::runOnMachineFunction(MachineFunction &MF) {
   return Impl.run(MF);
 }
 
+static void foldBlockIntoPredecessor(MachineBasicBlock &MBB) {
+  assert(MBB.pred_size() == 1 && "Block must have exactly one predecessor");
+  assert(MBB.succ_size() == 1 && "Block must have exactly one successor");
+  MachineBasicBlock *Pred = *MBB.pred_begin();
+  MachineBasicBlock *Succ = *MBB.succ_begin();
+  Pred->transferSuccessorsAndUpdatePHIs(&MBB);
+  Pred->ReplaceUsesOfBlockWith(&MBB, Succ);
+  Pred->splice(Pred->getFirstTerminator(), &MBB, MBB.begin(), MBB.end());
+  MBB.getParent()->erase(&MBB);
+}
+
 bool MachineSinking::run(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << "******** Machine Sinking ********\n");
 
@@ -835,6 +846,7 @@ bool MachineSinking::run(MachineFunction &MF) {
 
   RegClassInfo.runOnMachineFunction(MF);
 
+  SmallSet<MachineBasicBlock *, 8> NewBlocks;
   bool EverMadeChange = false;
 
   while (true) {
@@ -854,6 +866,7 @@ bool MachineSinking::run(MachineFunction &MF) {
       auto NewSucc = Pair.first->SplitCriticalEdge(
           Pair.second, {LIS, SI, LV, MLI}, nullptr, &MDTU);
       if (NewSucc != nullptr) {
+        NewBlocks.insert(NewSucc);
         LLVM_DEBUG(dbgs() << " *** Splitting critical edge: "
                           << printMBBReference(*Pair.first) << " -- "
                           << printMBBReference(*NewSucc) << " -- "
@@ -932,6 +945,19 @@ bool MachineSinking::run(MachineFunction &MF) {
       if (!HasHighPressure)
         break;
     }
+  }
+
+  for (MachineBasicBlock *MBB : NewBlocks) {
+    if (MBB->getSingleSuccessor()->isReturnBlock())
+      continue;
+    if (all_of(MBB->instrs(), [this](const MachineInstr &MI) {
+          return MI.isAsCheapAsAMove() &&
+                 all_of(MI.operands(), [this](const MachineOperand &MO) {
+                   return !MO.isReg() || MO.getReg().isVirtual() ||
+                          TRI->isConstantPhysReg(MO.getReg());
+                 });
+        }))
+      foldBlockIntoPredecessor(*MBB);
   }
 
   HasStoreCache.clear();
