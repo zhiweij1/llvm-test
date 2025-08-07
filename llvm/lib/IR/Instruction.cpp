@@ -557,9 +557,13 @@ void Instruction::dropUBImplyingAttrsAndMetadata() {
   // !range, !nonnull and !align produce poison, so they are safe to speculate.
   // !noundef and various AA metadata must be dropped, as it generally produces
   // immediate undefined behavior.
-  unsigned KnownIDs[] = {LLVMContext::MD_annotation, LLVMContext::MD_range,
-                         LLVMContext::MD_nonnull, LLVMContext::MD_align};
-  dropUBImplyingAttrsAndUnknownMetadata(KnownIDs);
+  static const unsigned KnownIDs[] = {
+      LLVMContext::MD_annotation, LLVMContext::MD_range,
+      LLVMContext::MD_nonnull, LLVMContext::MD_align, LLVMContext::MD_prof};
+  ArrayRef<unsigned> K(KnownIDs);
+  if (ProfcheckDisableMetadataFixes)
+    K = K.drop_back();
+  dropUBImplyingAttrsAndUnknownMetadata(K);
 }
 
 bool Instruction::hasUBImplyingAttrs() const {
